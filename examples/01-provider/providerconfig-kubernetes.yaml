@@ -1,0 +1,11 @@
+# 01-provider/providerconfig-kubernetes.yaml
+# Configures the Kubernetes provider to use the in-cluster service account.
+# InjectedIdentity = use the pod's own RBAC identity — no external credentials needed.
+
+apiVersion: kubernetes.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: default
+spec:
+  credentials:
+    source: InjectedIdentity

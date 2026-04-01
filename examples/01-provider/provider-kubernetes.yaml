@@ -1,0 +1,14 @@
+# 01-provider/provider-kubernetes.yaml
+# Installs the Crossplane Kubernetes provider.
+# This provider lets Crossplane manage Kubernetes resources
+# (Namespaces, ConfigMaps, Secrets, etc.) inside a cluster.
+# No cloud credentials required — works fully locally.
+
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-kubernetes
+spec:
+  package: xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v0.14.1
+  installationPolicy: Automatic
+  revisionActivationPolicy: Automatic
