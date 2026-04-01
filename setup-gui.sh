@@ -85,10 +85,11 @@ _install_headlamp() {
       || log_warn "Could not install Crossplane plugin (requires Node.js). Headlamp still works without it."
   fi
 
-  # Port-forward in background
+  # Port-forward in background — disown so it survives script exit
   log_info "Starting port-forward on http://localhost:4466 ..."
-  kubectl port-forward -n headlamp svc/headlamp 4466:80 &>/dev/null &
+  kubectl port-forward -n headlamp svc/headlamp 4466:80 >/dev/null 2>&1 &
   PF_PID=$!
+  disown "$PF_PID"
   echo "$PF_PID" > /tmp/headlamp-portforward.pid
   sleep 2
 
@@ -132,17 +133,20 @@ _install_upbound_console() {
   fi
 
   log_info "Connecting local cluster to Upbound Console ..."
-  echo -e "  Run the following commands (replace <org> with your Upbound org name):"
   echo ""
-  echo -e "  ${CYAN}up login --organization=<org>${RESET}"
-  echo -e "  ${CYAN}up space connect ${CLUSTER_NAME:-crossplane-local}${RESET}"
+  echo -e "  ${YELLOW}Note:${RESET} 'up space connect' requires Upbound Spaces (paid product)."
+  echo -e "  For the ${BOLD}free${RESET} Upbound Console, connect your cluster via the web UI:\n"
+  echo -e "  ${BOLD}Step 1${RESET} — Log in to Upbound:"
+  echo -e "          ${CYAN}up login${RESET}"
   echo ""
-  echo -e "  With optional overrides:"
-  echo -e "  ${CYAN}up space connect ${CLUSTER_NAME:-crossplane-local} \\${RESET}"
-  echo -e "  ${CYAN}    --organization=<org> \\${RESET}"
-  echo -e "  ${CYAN}    --kubecontext=kind-${CLUSTER_NAME:-crossplane-local}${RESET}"
+  echo -e "  ${BOLD}Step 2${RESET} — Open the Upbound Console in your browser:"
+  echo -e "          ${CYAN}https://console.upbound.io${RESET}"
   echo ""
-  echo -e "  Then open: ${BOLD}https://console.upbound.io${RESET}"
+  echo -e "  ${BOLD}Step 3${RESET} — In the Console UI:"
+  echo -e "          Create or select a Control Plane"
+  echo -e "          → Connect → Import kubeconfig"
+  echo -e "          → paste the output of:"
+  echo -e "          ${CYAN}kubectl config view --minify --raw${RESET}"
   echo ""
   log_ok "Upbound Console setup guide complete."
 }
