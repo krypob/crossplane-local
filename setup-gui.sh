@@ -2,13 +2,13 @@
 # setup-gui.sh — optional GUI dashboard for the local Crossplane environment
 #
 # Available dashboards:
-#   1) Headlamp   — modern Kubernetes web UI with Crossplane plugin (open source)
-#   2) Upbound Console — official Crossplane UI by Upbound (free for local use)
+#   1) Headlamp            — modern Kubernetes web UI with Crossplane plugin (open source)
+#   2) Kubernetes Dashboard — official Kubernetes web UI (open source, no account required)
 #
 # Usage:
 #   ./setup-gui.sh                  # interactive — choose which GUI to install
 #   GUI=headlamp ./setup-gui.sh     # skip prompt
-#   GUI=upbound  ./setup-gui.sh
+#   GUI=k8sdashboard ./setup-gui.sh
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,18 +32,17 @@ _select_gui() {
   echo -e "  ${BOLD}1) Headlamp${RESET}  — open-source Kubernetes UI + Crossplane plugin"
   echo -e "     Runs in your browser. Installed locally via Helm."
   echo -e "     Access: http://localhost:4466\n"
-  echo -e "  ${BOLD}2) Upbound Console${RESET}  — official Crossplane web UI"
-  echo -e "     Connects to your local cluster via the 'up' CLI."
-  echo -e "     Free for local use. Requires an Upbound account (free)."
-  echo -e "     Access: https://console.upbound.io\n"
+  echo -e "  ${BOLD}2) Kubernetes Dashboard${RESET}  — official Kubernetes web UI"
+  echo -e "     Open-source. No account required. Installed locally via Helm."
+  echo -e "     Access: http://localhost:8443\n"
   echo -e "  ${BOLD}3) Both${RESET}\n"
 
   while true; do
     read -rp "$(echo -e "${YELLOW}  Choice [1-3]: ${RESET}")" choice
     case "${choice:-}" in
-      1|headlamp)  SELECTED_GUI="headlamp"; return ;;
-      2|upbound)   SELECTED_GUI="upbound";  return ;;
-      3|both)      SELECTED_GUI="both";     return ;;
+      1|headlamp)      SELECTED_GUI="headlamp";      return ;;
+      2|k8sdashboard)  SELECTED_GUI="k8sdashboard";  return ;;
+      3|both)          SELECTED_GUI="both";           return ;;
       *) echo "  Please enter 1, 2, or 3." ;;
     esac
   done
@@ -112,60 +111,76 @@ _install_headlamp() {
   echo ""
 }
 
-# ── Upbound Console ────────────────────────────────────────────────────────────
-_install_upbound_console() {
-  log_section "Connecting to Upbound Console"
+# ── Kubernetes Dashboard ───────────────────────────────────────────────────────
+_install_k8s_dashboard() {
+  log_section "Installing Kubernetes Dashboard"
 
-  if ! has_cmd up; then
-    log_error "'up' CLI not found. Run ./setup.sh first to install it."
-    exit 1
+  # Add Helm repo
+  if ! helm repo list 2>/dev/null | grep -q "kubernetes-dashboard"; then
+    log_info "Adding Kubernetes Dashboard Helm repo ..."
+    helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
+    helm repo update
   fi
 
-  echo -e "  The Upbound Console is a hosted web UI at ${BOLD}https://console.upbound.io${RESET}"
-  echo -e "  It connects securely to your local cluster via the 'up' CLI."
-  echo -e "  A ${BOLD}free Upbound account${RESET} is required.\n"
-
-  if ! up organization list &>/dev/null 2>&1; then
-    log_info "You need to log in to Upbound first."
-    echo -e "  ${CYAN}up login${RESET}"
-    echo ""
-    read -rp "$(echo -e "${YELLOW}  Press Enter after logging in with 'up login', or Ctrl+C to skip: ${RESET}")"
+  # Install into kubernetes-dashboard namespace
+  if helm status kubernetes-dashboard -n kubernetes-dashboard &>/dev/null 2>&1; then
+    log_warn "Kubernetes Dashboard already installed — skipping."
+  else
+    log_info "Installing Kubernetes Dashboard via Helm ..."
+    kubectl create namespace kubernetes-dashboard --dry-run=client -o yaml | kubectl apply -f -
+    helm install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+      --namespace kubernetes-dashboard \
+      --wait --timeout 3m
+    log_ok "Kubernetes Dashboard installed."
   fi
 
-  log_info "Connecting local cluster to Upbound Console ..."
+  # Create admin service account + token (idempotent)
+  kubectl create serviceaccount dashboard-admin -n kubernetes-dashboard \
+    --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null
+  kubectl create clusterrolebinding dashboard-admin \
+    --clusterrole=cluster-admin \
+    --serviceaccount=kubernetes-dashboard:dashboard-admin \
+    --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null
+
+  # Port-forward in background — disown so it survives script exit
+  log_info "Starting port-forward on http://localhost:8443 ..."
+  kubectl port-forward -n kubernetes-dashboard svc/kubernetes-dashboard-kong-proxy 8443:443 >/dev/null 2>&1 &
+  PF_PID=$!
+  disown "$PF_PID"
+  echo "$PF_PID" > /tmp/k8sdashboard-portforward.pid
+  sleep 2
+
+  log_ok "Kubernetes Dashboard is running at ${BOLD}https://localhost:8443${RESET}"
   echo ""
-  echo -e "  ${YELLOW}Note:${RESET} 'up space connect' requires Upbound Spaces (paid product)."
-  echo -e "  For the ${BOLD}free${RESET} Upbound Console, connect your cluster via the web UI:\n"
-  echo -e "  ${BOLD}Step 1${RESET} — Log in to Upbound:"
-  echo -e "          ${CYAN}up login${RESET}"
+  echo -e "  ${YELLOW}Your login token (paste it into the Dashboard):${RESET}"
+  echo -e "  ${CYAN}$(kubectl create token dashboard-admin -n kubernetes-dashboard)${RESET}"
   echo ""
-  echo -e "  ${BOLD}Step 2${RESET} — Open the Upbound Console in your browser:"
-  echo -e "          ${CYAN}https://console.upbound.io${RESET}"
+  echo -e "  ${YELLOW}Note:${RESET} Your browser may warn about the self-signed certificate — proceed anyway."
+  echo -e "  Stop port-forward: ${CYAN}kill \$(cat /tmp/k8sdashboard-portforward.pid)${RESET}"
   echo ""
-  echo -e "  ${BOLD}Step 3${RESET} — In the Console UI:"
-  echo -e "          Create or select a Control Plane"
-  echo -e "          → Connect → Import kubeconfig"
-  echo -e "          → paste the output of:"
-  echo -e "          ${CYAN}kubectl config view --minify --raw${RESET}"
-  echo ""
-  log_ok "Upbound Console setup guide complete."
 }
 
 # ── Dispatch ───────────────────────────────────────────────────────────────────
 case "$SELECTED_GUI" in
-  headlamp) _install_headlamp ;;
-  upbound)  _install_upbound_console ;;
-  both)     _install_headlamp; _install_upbound_console ;;
+  headlamp)     _install_headlamp ;;
+  k8sdashboard) _install_k8s_dashboard ;;
+  both)         _install_headlamp; _install_k8s_dashboard ;;
 esac
 
 log_section "GUI Setup Complete"
 if [[ "$SELECTED_GUI" == "headlamp" || "$SELECTED_GUI" == "both" ]]; then
-  echo -e "  ${BOLD}Headlamp:${RESET}        ${CYAN}http://localhost:4466${RESET}"
+  echo -e "  ${BOLD}Headlamp:${RESET}              ${CYAN}http://localhost:4466${RESET}"
 fi
-if [[ "$SELECTED_GUI" == "upbound" || "$SELECTED_GUI" == "both" ]]; then
-  echo -e "  ${BOLD}Upbound Console:${RESET} ${CYAN}https://console.upbound.io${RESET}"
+if [[ "$SELECTED_GUI" == "k8sdashboard" || "$SELECTED_GUI" == "both" ]]; then
+  echo -e "  ${BOLD}Kubernetes Dashboard:${RESET}  ${CYAN}https://localhost:8443${RESET}"
 fi
 echo ""
-echo -e "  To stop Headlamp port-forward:"
-echo -e "    ${CYAN}kill \$(cat /tmp/headlamp-portforward.pid)${RESET}"
+if [[ "$SELECTED_GUI" == "headlamp" || "$SELECTED_GUI" == "both" ]]; then
+  echo -e "  Stop Headlamp port-forward:"
+  echo -e "    ${CYAN}kill \$(cat /tmp/headlamp-portforward.pid)${RESET}"
+fi
+if [[ "$SELECTED_GUI" == "k8sdashboard" || "$SELECTED_GUI" == "both" ]]; then
+  echo -e "  Stop Kubernetes Dashboard port-forward:"
+  echo -e "    ${CYAN}kill \$(cat /tmp/k8sdashboard-portforward.pid)${RESET}"
+fi
 echo ""

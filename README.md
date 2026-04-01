@@ -78,7 +78,7 @@ The script walks you through:
 5. **Tool installation** — installs missing tools automatically
 6. **Cluster creation** — kind (standard) or k3d/k3s (lightweight)
 7. **Crossplane install** — via official Helm chart, waits until pods are ready
-8. **GUI prompt** — optional: install Headlamp or connect Upbound Console
+8. **GUI prompt** — optional: install Headlamp or Kubernetes Dashboard
 
 ### Windows (PowerShell — Administrator)
 
@@ -137,7 +137,7 @@ crossplane-local/
 ├── setup.ps1                     # Entry point — Windows (PowerShell)
 ├── teardown.sh                   # Stop and remove the local environment
 ├── update.sh                     # Upgrade Crossplane and providers in-place
-├── setup-gui.sh                  # Optional: install Headlamp or Upbound Console
+├── setup-gui.sh                  # Optional: install Headlamp or Kubernetes Dashboard
 ├── setup-monitoring.sh           # Optional: install Prometheus + Grafana
 │
 ├── scripts/
@@ -206,7 +206,7 @@ Choose between:
 | Option | Access | Notes |
 |--------|--------|-------|
 | **Headlamp** | `http://localhost:4466` | Open-source K8s UI, installed locally via Helm, has a Crossplane plugin |
-| **Upbound Console** | `https://console.upbound.io` | Official Crossplane UI, connects via `up` CLI, free Upbound account required |
+| **Kubernetes Dashboard** | `https://localhost:8443` | Official Kubernetes web UI, open-source, no account required, installed via Helm |
 
 > Also prompted automatically at the end of `./setup.sh` (default: no).
 > Skip with `SKIP_GUI=1 ./setup.sh`.
