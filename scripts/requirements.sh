@@ -137,7 +137,10 @@ check_system_resources() {
 
   # ── Disk ──
   local disk_gib=0
-  disk_gib=$(df -BG . 2>/dev/null | awk 'NR==2 {gsub("G",""); print $4}' || echo 0)
+  case "$os" in
+    macos) disk_gib=$(df -g . 2>/dev/null | awk 'NR==2 {print $4}' || echo 0) ;;
+    linux) disk_gib=$(df -BG . 2>/dev/null | awk 'NR==2 {gsub("G",""); print $4}' || echo 0) ;;
+  esac
 
   local rec_disk; rec_disk=$(_req "$stack" rec_disk)
   if (( disk_gib >= rec_disk )); then
