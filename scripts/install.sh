@@ -22,12 +22,14 @@ install_tools_macos_standard() {
   _brew_install "kubectl" "kubectl" "kubernetes-cli"
   _brew_install "helm"    "helm"    "helm"
   _install_up_brew
+  _install_k9s_brew
 }
 
 # ── macOS — lightweight stack (Colima + k3d) ──────────────────────────────────
 install_tools_macos_lightweight() {
   log_section "Installing Tools — macOS / Lightweight (Colima + k3d)"
   _require_brew
+  _install_k9s_brew
 
   # Colima
   if has_cmd colima; then
@@ -82,6 +84,7 @@ install_tools_linux_standard() {
   _install_kubectl_linux
   _install_helm_linux
   _install_up_binary "linux" "$(uname -m)"
+  _install_k9s_linux
 }
 
 # ── Linux — lightweight stack ─────────────────────────────────────────────────
@@ -103,6 +106,7 @@ install_tools_linux_lightweight() {
   _install_kubectl_linux
   _install_helm_linux
   _install_up_binary "linux" "$(uname -m)"
+  _install_k9s_linux
 }
 
 # ── Shared brew helper ────────────────────────────────────────────────────────
@@ -183,6 +187,31 @@ _install_up_binary() {
   else
     log_warn "Could not download Crossplane CLI (up). Crossplane will still work via helm."
   fi
+}
+
+# ── k9s installers ────────────────────────────────────────────────────────────
+K9S_VERSION="${K9S_VERSION:-v0.32.7}"
+
+_install_k9s_brew() {
+  if has_cmd k9s; then
+    log_ok "k9s $(k9s version --short 2>/dev/null | head -1) already installed"
+    return
+  fi
+  log_info "Installing k9s (terminal UI for Kubernetes) ..."
+  brew install derailed/k9s/k9s && log_ok "k9s installed" || { log_error "Failed to install k9s"; exit 1; }
+}
+
+_install_k9s_linux() {
+  if has_cmd k9s; then
+    log_ok "k9s $(k9s version --short 2>/dev/null | head -1) already installed"
+    return
+  fi
+  log_info "Installing k9s ${K9S_VERSION} ..."
+  local arch; arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+  local url="https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_${arch}.tar.gz"
+  curl -fsSL "$url" | tar -xzf - -C /tmp k9s
+  sudo mv /tmp/k9s /usr/local/bin/k9s
+  log_ok "k9s installed"
 }
 
 # ── Dispatcher ────────────────────────────────────────────────────────────────
