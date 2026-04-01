@@ -127,9 +127,15 @@ _install_upbound_console() {
   fi
 
   log_info "Connecting local cluster to Upbound Console ..."
-  echo -e "  Run the following command (replace <org> with your Upbound org name):"
+  echo -e "  Run the following commands (replace <org> with your Upbound org name):"
   echo ""
-  echo -e "  ${CYAN}up space connect --cluster-name crossplane-local${RESET}"
+  echo -e "  ${CYAN}up login --organization=<org>${RESET}"
+  echo -e "  ${CYAN}up space connect ${CLUSTER_NAME:-crossplane-local}${RESET}"
+  echo ""
+  echo -e "  With optional overrides:"
+  echo -e "  ${CYAN}up space connect ${CLUSTER_NAME:-crossplane-local} \\${RESET}"
+  echo -e "  ${CYAN}    --organization=<org> \\${RESET}"
+  echo -e "  ${CYAN}    --kubecontext=kind-${CLUSTER_NAME:-crossplane-local}${RESET}"
   echo ""
   echo -e "  Then open: ${BOLD}https://console.upbound.io${RESET}"
   echo ""
