@@ -1,0 +1,53 @@
+# 02-compositions/xnamespace/xrd.yaml
+# CompositeResourceDefinition (XRD) — defines the "AppNamespace" API.
+#
+# This creates two new Kubernetes API types:
+#   - XNamespace        (cluster-scoped composite resource)
+#   - AppNamespace      (namespace-scoped claim — what users interact with)
+#
+# Users create an AppNamespace claim, Crossplane creates the backing XNamespace
+# and all resources defined in the Composition.
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xnamespaces.example.crossplane.io
+spec:
+  group: example.crossplane.io
+  names:
+    kind: XNamespace
+    plural: xnamespaces
+  claimNames:
+    kind: AppNamespace
+    plural: appnamespaces
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the Kubernetes namespace to provision
+                owner:
+                  type: string
+                  description: Team or person responsible for this namespace
+                environment:
+                  type: string
+                  description: Environment label (e.g. dev, staging, prod)
+                  default: dev
+                  enum: [dev, staging, prod]
+              required:
+                - name
+                - owner
+            status:
+              type: object
+              properties:
+                namespaceName:
+                  type: string
+                  description: The actual namespace name that was created

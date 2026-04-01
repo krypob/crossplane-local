@@ -1,0 +1,27 @@
+# 03-claims/my-app-namespace.yaml
+# AppNamespace claim — this is what a developer/team would submit.
+#
+# When applied, Crossplane will:
+#   1. Create a Namespace  "my-app-dev"
+#   2. Create a ResourceQuota inside it
+#   3. Create a LimitRange inside it
+#
+# Try it:
+#   kubectl apply -f 03-claims/my-app-namespace.yaml
+#   kubectl get appnamespace my-app -n default
+#   kubectl get namespace my-app-dev
+#   kubectl get resourcequota -n my-app-dev
+#
+# Delete it:
+#   kubectl delete -f 03-claims/my-app-namespace.yaml
+#   (Crossplane will delete all provisioned resources automatically)
+
+apiVersion: example.crossplane.io/v1alpha1
+kind: AppNamespace
+metadata:
+  name: my-app
+  namespace: default
+spec:
+  name: my-app-dev
+  owner: platform-team
+  environment: dev

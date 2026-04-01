@@ -1,0 +1,106 @@
+# 02-compositions/xnamespace/composition.yaml
+# Composition — defines WHAT gets created when someone claims an AppNamespace.
+#
+# This composition provisions:
+#   1. A Kubernetes Namespace  (labelled with owner + environment)
+#   2. A ResourceQuota         (limits CPU/memory in the namespace)
+#   3. A LimitRange            (sets default container resource limits)
+#
+# All resources are managed via provider-kubernetes (in-cluster, no cloud needed).
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xnamespace.example.crossplane.io
+  labels:
+    provider: kubernetes
+    example: "true"
+spec:
+  compositeTypeRef:
+    apiVersion: example.crossplane.io/v1alpha1
+    kind: XNamespace
+
+  resources:
+    # ── 1. Namespace ─────────────────────────────────────────────────────────
+    - name: namespace
+      base:
+        apiVersion: kubernetes.crossplane.io/v1alpha2
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              apiVersion: v1
+              kind: Namespace
+              metadata:
+                labels:
+                  managed-by: crossplane
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.manifest.metadata.name
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.owner
+          toFieldPath: spec.forProvider.manifest.metadata.labels.owner
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.environment
+          toFieldPath: spec.forProvider.manifest.metadata.labels.environment
+        # Write the created namespace name back to status
+        - type: ToCompositeFieldPath
+          fromFieldPath: spec.forProvider.manifest.metadata.name
+          toFieldPath: status.namespaceName
+
+    # ── 2. ResourceQuota ──────────────────────────────────────────────────────
+    - name: resource-quota
+      base:
+        apiVersion: kubernetes.crossplane.io/v1alpha2
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              apiVersion: v1
+              kind: ResourceQuota
+              metadata:
+                name: default-quota
+              spec:
+                hard:
+                  requests.cpu: "2"
+                  requests.memory: 2Gi
+                  limits.cpu: "4"
+                  limits.memory: 4Gi
+                  pods: "20"
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.manifest.metadata.namespace
+
+    # ── 3. LimitRange ─────────────────────────────────────────────────────────
+    - name: limit-range
+      base:
+        apiVersion: kubernetes.crossplane.io/v1alpha2
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              apiVersion: v1
+              kind: LimitRange
+              metadata:
+                name: default-limits
+              spec:
+                limits:
+                  - type: Container
+                    default:
+                      cpu: 200m
+                      memory: 256Mi
+                    defaultRequest:
+                      cpu: 100m
+                      memory: 128Mi
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.name
+          toFieldPath: spec.forProvider.manifest.metadata.namespace
