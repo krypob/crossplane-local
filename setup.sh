@@ -175,10 +175,7 @@ echo -e "  Quick-start:"
 echo -e "    ${CYAN}kubectl get pods -n ${CROSSPLANE_NAMESPACE:-crossplane-system}${RESET}"
 echo -e "    ${CYAN}kubectl get crds | grep crossplane${RESET}"
 echo ""
-echo -e "  Tear down:"
-if [[ "$SELECTED_STACK" == "lightweight" ]]; then
-  echo -e "    ${CYAN}k3d cluster delete ${CLUSTER_NAME:-crossplane-local}${RESET}"
-else
-  echo -e "    ${CYAN}kind delete cluster --name ${CLUSTER_NAME:-crossplane-local}${RESET}"
-fi
+echo -e "  Tear down (removes cluster, kubeconfig context, optional image prune):"
+echo -e "    ${CYAN}./teardown.sh${RESET}        # interactive"
+echo -e "    ${CYAN}./teardown.sh --all${RESET}  # remove everything without prompts"
 echo ""
