@@ -175,7 +175,16 @@ echo -e "  Quick-start:"
 echo -e "    ${CYAN}kubectl get pods -n ${CROSSPLANE_NAMESPACE:-crossplane-system}${RESET}"
 echo -e "    ${CYAN}kubectl get crds | grep crossplane${RESET}"
 echo ""
+echo -e "  Optional next steps:"
+echo -e "    ${CYAN}./setup-gui.sh${RESET}               # install a visual dashboard (Headlamp / Upbound)"
+echo -e "    ${CYAN}./examples/apply.sh${RESET}          # try example Compositions"
+echo ""
 echo -e "  Tear down (removes cluster, kubeconfig context, optional image prune):"
 echo -e "    ${CYAN}./teardown.sh${RESET}        # interactive"
 echo -e "    ${CYAN}./teardown.sh --all${RESET}  # remove everything without prompts"
 echo ""
+
+# ── Optional GUI prompt ────────────────────────────────────────────────────────
+if [[ "${SKIP_GUI:-0}" != "1" ]] && ask_yes_no "Would you like to install a GUI dashboard now?" "n"; then
+  bash "${SCRIPT_DIR}/setup-gui.sh"
+fi
