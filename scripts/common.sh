@@ -46,7 +46,8 @@ ask_yes_no() {
   while true; do
     read -rp "$(echo -e "${YELLOW}${prompt} ${options}: ${RESET}")" answer
     answer="${answer:-$default}"
-    case "${answer,,}" in
+    answer="$(echo "$answer" | tr '[:upper:]' '[:lower:]')"
+    case "$answer" in
       y|yes) return 0 ;;
       n|no)  return 1 ;;
       *)     echo "Please answer y or n." ;;

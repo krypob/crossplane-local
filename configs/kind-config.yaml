@@ -35,10 +35,6 @@ nodes:
   - role: worker
   - role: worker
 
-# Feature gates — enable server-side apply (required by Crossplane ≥ 1.14)
-featureGates:
-  ServerSideApply: true
-
 # Networking defaults — override only if you need custom pod/service CIDRs
 networking:
   # podSubnet: "10.244.0.0/16"
