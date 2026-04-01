@@ -60,7 +60,7 @@ _install_headlamp() {
   # Add Helm repo
   if ! helm repo list 2>/dev/null | grep -q "headlamp"; then
     log_info "Adding Headlamp Helm repo ..."
-    helm repo add headlamp https://headlamp-k8s.github.io/headlamp/
+    helm repo add headlamp https://kubernetes-sigs.github.io/headlamp/
     helm repo update
   fi
 
