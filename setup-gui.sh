@@ -95,12 +95,17 @@ _install_headlamp() {
   log_ok "Headlamp is running at ${BOLD}http://localhost:4466${RESET}"
   echo ""
 
-  # Print access token
-  echo -e "  ${YELLOW}To log in, create a service account token:${RESET}"
-  echo -e "  ${CYAN}kubectl create serviceaccount headlamp-admin -n headlamp${RESET}"
-  echo -e "  ${CYAN}kubectl create clusterrolebinding headlamp-admin \\${RESET}"
-  echo -e "  ${CYAN}    --clusterrole=cluster-admin --serviceaccount=headlamp:headlamp-admin${RESET}"
-  echo -e "  ${CYAN}kubectl create token headlamp-admin -n headlamp${RESET}"
+  # Create service account + clusterrolebinding (idempotent) and print token
+  echo -e "  ${YELLOW}Setting up Headlamp login token:${RESET}"
+  kubectl create serviceaccount headlamp-admin -n headlamp \
+    --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null
+  kubectl create clusterrolebinding headlamp-admin \
+    --clusterrole=cluster-admin \
+    --serviceaccount=headlamp:headlamp-admin \
+    --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null
+  echo ""
+  echo -e "  ${YELLOW}Your login token (paste it into Headlamp):${RESET}"
+  echo -e "  ${CYAN}$(kubectl create token headlamp-admin -n headlamp)${RESET}"
   echo ""
   echo -e "  Stop port-forward: ${CYAN}kill \$(cat /tmp/headlamp-portforward.pid)${RESET}"
   echo ""
