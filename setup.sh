@@ -176,7 +176,7 @@ echo -e "    ${CYAN}kubectl get pods -n ${CROSSPLANE_NAMESPACE:-crossplane-syste
 echo -e "    ${CYAN}kubectl get crds | grep crossplane${RESET}"
 echo ""
 echo -e "  Optional next steps:"
-echo -e "    ${CYAN}./setup-gui.sh${RESET}               # install a visual dashboard (Headlamp / Upbound)"
+echo -e "    ${CYAN}./setup-gui.sh${RESET}               # install a visual dashboard (Headlamp / Kubernetes Dashboard)"
 echo -e "    ${CYAN}./examples/apply.sh${RESET}          # try example Compositions"
 echo ""
 echo -e "  Tear down (removes cluster, kubeconfig context, optional image prune):"
