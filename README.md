@@ -1,31 +1,60 @@
 # Crossplane Local Environment
 
-One-command setup for a fully functional [Crossplane](https://crossplane.io) local environment using **kind** (Kubernetes in Docker) and **Helm**.
+One-command setup for a fully functional [Crossplane](https://crossplane.io) local environment.
+Choose between a **Standard** stack (Docker + kind) or a **Lightweight** stack (Colima + k3d/k3s).
+
+---
+
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [System Requirements](#system-requirements)
+- [Quick Start](#quick-start)
+- [Stack Comparison](#stack-comparison)
+- [Environment Variables](#environment-variables)
+- [Project Structure](#project-structure)
+- [What Gets Installed](#what-gets-installed)
+- [Optional Features](#optional-features)
+  - [GUI Dashboard](#gui-dashboard)
+  - [Monitoring Stack](#monitoring-stack)
+  - [Example Compositions](#example-compositions)
+- [Lifecycle Scripts](#lifecycle-scripts)
+- [Useful Commands](#useful-commands)
+- [Customising the Cluster](#customising-the-cluster)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Prerequisites
 
-> The only thing you must install manually before running the script is **Docker**.
+> The only thing you must install manually is a container runtime — everything else is installed automatically.
 
-| Tool | macOS | Linux | Windows |
-|------|-------|-------|---------|
-| Docker Desktop | [Download](https://www.docker.com/products/docker-desktop) | [Docs](https://docs.docker.com/engine/install/) | [Download](https://www.docker.com/products/docker-desktop) |
-
-Everything else (kind, kubectl, helm, Crossplane CLI) is installed automatically.
+| Stack | Required manually | macOS | Linux | Windows |
+|-------|------------------|-------|-------|---------|
+| **Standard** | Docker Desktop | [Download](https://www.docker.com/products/docker-desktop) | [Docs](https://docs.docker.com/engine/install/) | [Download](https://www.docker.com/products/docker-desktop) |
+| **Lightweight** | Nothing (Colima installed automatically) | via Homebrew | Docker Engine (auto-installed) | — |
 
 ---
 
-## Minimum System Requirements
+## System Requirements
+
+### Standard stack (Docker + kind)
 
 | Resource | Minimum | Recommended |
 |----------|---------|-------------|
 | RAM | 8 GiB | 16 GiB |
 | CPU cores | 4 | 6+ |
-| Free disk space | 20 GiB | 40 GiB |
+| Free disk | 20 GiB | 40 GiB |
 
-> **macOS / Windows (Docker Desktop):** allocate at least 8 GiB of memory in
-> Docker Desktop → Settings → Resources → Memory.
+### Lightweight stack (Colima + k3d/k3s)
+
+| Resource | Minimum | Recommended |
+|----------|---------|-------------|
+| RAM | 2 GiB | 4 GiB |
+| CPU cores | 2 | 4+ |
+| Free disk | 8 GiB | 20 GiB |
+
+> Resource checks are **soft** — the script warns if requirements are not met but always lets you continue.
 
 ---
 
@@ -34,31 +63,27 @@ Everything else (kind, kubectl, helm, Crossplane CLI) is installed automatically
 ### macOS / Linux
 
 ```bash
-# Clone the repo (skip if you already have it)
-git clone <repo-url> crossplane-project
-cd crossplane-project
-
-# Make the script executable and run
+git clone https://github.com/krypob/crossplane-local.git
+cd crossplane-local
 chmod +x setup.sh
 ./setup.sh
 ```
 
-The script will:
-1. Ask which OS you are using
-2. Display minimum requirements and ask for confirmation
-3. Check your system resources (RAM, CPU, disk, Docker)
-4. Install missing tools via Homebrew (macOS) or direct binaries (Linux)
-5. Create a `crossplane-local` kind cluster (1 control-plane + 2 workers)
-6. Add the Crossplane Helm repo and install Crossplane
-7. Wait for all pods to become ready and print a status summary
+The script walks you through:
+
+1. **OS selection** — auto-detects macOS / Linux, asks for confirmation
+2. **Stack selection** — Standard (Docker + kind) or Lightweight (Colima + k3d)
+3. **Requirements display** — shows minimums for the chosen stack
+4. **Resource check** — warns on RAM / CPU / disk below minimum (soft, always continuable)
+5. **Tool installation** — installs missing tools automatically
+6. **Cluster creation** — kind (standard) or k3d/k3s (lightweight)
+7. **Crossplane install** — via official Helm chart, waits until pods are ready
+8. **GUI prompt** — optional: install Headlamp or connect Upbound Console
 
 ### Windows (PowerShell — Administrator)
 
 ```powershell
-# Allow local scripts to run
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-
-# Run the setup
 .\setup.ps1
 ```
 
@@ -66,23 +91,40 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 ---
 
-## Environment Variables (optional overrides)
+## Stack Comparison
+
+| | Standard | Lightweight |
+|-|----------|-------------|
+| Container runtime | Docker Desktop | Colima (macOS) / Docker Engine (Linux) |
+| Kubernetes engine | kind (full K8s) | k3d / k3s (certified, ~70% less RAM) |
+| Min RAM | 8 GiB | 2 GiB |
+| Best for | Existing Docker users, CI parity | Laptops, low-spec machines |
+| Cluster config | `configs/kind-config.yaml` | `configs/k3d-config.yaml` |
+
+---
+
+## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CLUSTER_NAME` | `crossplane-local` | Name of the kind cluster |
-| `CROSSPLANE_NAMESPACE` | `crossplane-system` | Kubernetes namespace for Crossplane |
-| `CROSSPLANE_CHART_VERSION` | *(latest)* | Pin a specific Crossplane Helm chart version |
-| `KIND_VERSION` | `v0.25.0` | kind binary version to install |
-| `KUBECTL_VERSION` | `v1.31.0` | kubectl version to install |
-| `HELM_VERSION` | `v3.16.2` | Helm version to install |
-| `KIND_CONFIG_PATH` | `configs/kind-config.yaml` | Path to a custom kind cluster config |
-| `SKIP_CHECKS` | `0` | Set to `1` to skip resource checks |
-
-Example:
+| `OS` | auto-detected | `macos` or `linux` — skip OS prompt |
+| `STACK` | interactive | `standard` or `lightweight` — skip stack prompt |
+| `CLUSTER_NAME` | `crossplane-local` | Name of the cluster |
+| `CROSSPLANE_NAMESPACE` | `crossplane-system` | Namespace for Crossplane |
+| `CROSSPLANE_CHART_VERSION` | *(latest)* | Pin a specific Helm chart version |
+| `KIND_CONFIG_PATH` | `configs/kind-config.yaml` | Custom kind cluster config |
+| `K3D_CONFIG_PATH` | `configs/k3d-config.yaml` | Custom k3d cluster config |
+| `SKIP_CHECKS` | `0` | `1` = skip resource checks |
+| `SKIP_GUI` | `0` | `1` = skip the GUI prompt at the end |
+| `COLIMA_CPU` | `2` | CPU cores to allocate to Colima |
+| `COLIMA_MEMORY` | `4` | GiB of RAM to allocate to Colima |
+| `COLIMA_DISK` | `60` | GiB of disk to allocate to Colima |
 
 ```bash
-CLUSTER_NAME=my-xp CROSSPLANE_CHART_VERSION=1.17.0 ./setup.sh
+# Examples
+OS=macos STACK=lightweight ./setup.sh
+CLUSTER_NAME=my-xp CROSSPLANE_CHART_VERSION=2.2.0 ./setup.sh
+SKIP_CHECKS=1 SKIP_GUI=1 ./setup.sh
 ```
 
 ---
@@ -90,64 +132,209 @@ CLUSTER_NAME=my-xp CROSSPLANE_CHART_VERSION=1.17.0 ./setup.sh
 ## Project Structure
 
 ```
-crossplane-project/
-├── setup.sh                    # Entry point — macOS / Linux
-├── setup.ps1                   # Entry point — Windows (PowerShell)
+crossplane-local/
+├── setup.sh                      # Entry point — macOS / Linux
+├── setup.ps1                     # Entry point — Windows (PowerShell)
+├── teardown.sh                   # Stop and remove the local environment
+├── update.sh                     # Upgrade Crossplane and providers in-place
+├── setup-gui.sh                  # Optional: install Headlamp or Upbound Console
+├── setup-monitoring.sh           # Optional: install Prometheus + Grafana
+│
 ├── scripts/
-│   ├── common.sh               # Colors, logging, shared helpers
-│   ├── requirements.sh         # Display and check system requirements
-│   ├── install.sh              # Install kind, kubectl, helm, up
-│   └── cluster.sh              # Create kind cluster, install Crossplane
-└── configs/
-    └── kind-config.yaml        # kind cluster layout (1 control-plane + 2 workers)
+│   ├── common.sh                 # Colors, logging, shared helpers
+│   ├── requirements.sh           # Display and check system requirements
+│   ├── install.sh                # Install tools (kind/k3d, kubectl, helm, k9s, up)
+│   └── cluster.sh                # Create cluster, install Crossplane
+│
+├── configs/
+│   ├── kind-config.yaml          # kind cluster layout (1 control-plane + 2 workers)
+│   └── k3d-config.yaml           # k3d cluster layout (1 server + 1 agent)
+│
+└── examples/
+    ├── apply.sh                  # Apply all examples
+    ├── destroy.sh                # Remove all examples
+    ├── 01-provider/
+    │   ├── provider-kubernetes.yaml
+    │   └── providerconfig-kubernetes.yaml
+    ├── 02-compositions/
+    │   └── xnamespace/
+    │       ├── xrd.yaml          # CompositeResourceDefinition: AppNamespace
+    │       └── composition.yaml  # Provisions Namespace + ResourceQuota + LimitRange
+    └── 03-claims/
+        └── my-app-namespace.yaml # Example claim
 ```
 
 ---
 
 ## What Gets Installed
 
+### Core tools (all stacks)
+
 | Tool | Purpose |
 |------|---------|
-| **kind** | Runs a Kubernetes cluster inside Docker containers |
-| **kubectl** | CLI to interact with the cluster |
-| **helm** | Installs Crossplane via the official Helm chart |
+| **kubectl** | Kubernetes CLI |
+| **helm** | Installs Crossplane and optional stacks via Helm charts |
+| **k9s** | Terminal UI for browsing cluster resources |
 | **up** | Crossplane CLI for managing providers and compositions |
-| **Crossplane** | Deployed into the `crossplane-system` namespace |
+| **Crossplane** | Deployed into `crossplane-system` namespace |
+
+### Standard stack only
+
+| Tool | Purpose |
+|------|---------|
+| **kind** | Runs full Kubernetes inside Docker containers |
+
+### Lightweight stack only
+
+| Tool | Purpose |
+|------|---------|
+| **Colima** | Lightweight container runtime (macOS) — replaces Docker Desktop |
+| **k3d** | Runs k3s (lightweight certified Kubernetes) inside containers |
 
 ---
 
-## Useful Commands After Setup
+## Optional Features
+
+### GUI Dashboard
 
 ```bash
-# Check Crossplane pods
+./setup-gui.sh
+```
+
+Choose between:
+
+| Option | Access | Notes |
+|--------|--------|-------|
+| **Headlamp** | `http://localhost:4466` | Open-source K8s UI, installed locally via Helm, has a Crossplane plugin |
+| **Upbound Console** | `https://console.upbound.io` | Official Crossplane UI, connects via `up` CLI, free Upbound account required |
+
+> Also prompted automatically at the end of `./setup.sh` (default: no).
+> Skip with `SKIP_GUI=1 ./setup.sh`.
+
+---
+
+### Monitoring Stack
+
+```bash
+./setup-monitoring.sh
+```
+
+Installs **kube-prometheus-stack** (Prometheus + Grafana) with:
+- A pre-built **Crossplane dashboard** showing managed resource health, reconcile errors, and provider status
+- A **ServiceMonitor** that scrapes `crossplane-system` metrics every 30 s
+- Auto port-forwards on startup
+
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| Grafana | `http://localhost:3000` | admin / crossplane-local |
+| Prometheus | `http://localhost:9090` | — |
+
+```bash
+# Remove the monitoring stack
+./setup-monitoring.sh --uninstall
+```
+
+---
+
+### Example Compositions
+
+Ready-to-run Crossplane examples using **provider-kubernetes** (no cloud credentials required — works fully locally).
+
+```bash
+./examples/apply.sh          # install provider, XRD, Composition, optional claim
+./examples/apply.sh --all    # install everything without prompting
+./examples/destroy.sh        # remove all example resources in safe order
+```
+
+**What the example creates:**
+
+A developer submits an `AppNamespace` claim — Crossplane provisions:
+1. A Kubernetes **Namespace** labelled with `owner` and `environment`
+2. A **ResourceQuota** (CPU / memory limits)
+3. A **LimitRange** (default container limits)
+
+```bash
+# Apply the example claim
+kubectl apply -f examples/03-claims/my-app-namespace.yaml
+
+# See what was provisioned
+kubectl get appnamespace my-app -n default
+kubectl get namespace my-app-dev
+kubectl get resourcequota -n my-app-dev
+
+# Delete (Crossplane removes all managed resources automatically)
+kubectl delete -f examples/03-claims/my-app-namespace.yaml
+```
+
+---
+
+## Lifecycle Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `./setup.sh` | Create the local environment from scratch |
+| `./teardown.sh` | Stop cluster, clean kubeconfig, optional image prune |
+| `./update.sh` | Upgrade Crossplane chart and providers in-place |
+| `./setup-gui.sh` | Install a visual dashboard |
+| `./setup-monitoring.sh` | Install Prometheus + Grafana |
+| `./examples/apply.sh` | Deploy example compositions |
+| `./examples/destroy.sh` | Remove example compositions |
+
+```bash
+# Teardown options
+./teardown.sh             # interactive
+./teardown.sh --all       # remove everything without prompts
+CLUSTER_NAME=my-xp ./teardown.sh
+
+# Update options
+./update.sh                             # interactive
+./update.sh --yes                       # non-interactive
+./update.sh --crossplane-only           # only upgrade the Helm chart
+./update.sh --providers-only            # only upgrade installed providers
+CROSSPLANE_CHART_VERSION=2.3.0 ./update.sh
+```
+
+---
+
+## Useful Commands
+
+```bash
+# Crossplane
 kubectl get pods -n crossplane-system
-
-# List all Crossplane CRDs
 kubectl get crds | grep crossplane
-
-# List available API resources from Crossplane
 kubectl api-resources | grep crossplane.io
+kubectl get provider
 
-# Check all kind clusters
+# Cluster (standard)
 kind get clusters
-
-# Delete the local cluster when done
 kind delete cluster --name crossplane-local
+
+# Cluster (lightweight)
+k3d cluster list
+k3d cluster delete crossplane-local
+colima status
+
+# Terminal UI
+k9s
 ```
 
 ---
 
 ## Customising the Cluster
 
-Edit `configs/kind-config.yaml` to adjust:
+**Standard** — edit `configs/kind-config.yaml`:
 - Number of worker nodes
-- Port mappings (useful for ingress controllers)
-- Custom pod/service CIDR ranges
+- Host port mappings (useful for ingress controllers)
 
-Or point to your own config file:
+**Lightweight** — edit `configs/k3d-config.yaml`:
+- Number of agent nodes
+- Disabled components (Traefik, local-storage)
+
+Or point to your own config at runtime:
 
 ```bash
-KIND_CONFIG_PATH=/path/to/my-config.yaml ./setup.sh
+KIND_CONFIG_PATH=/path/to/my-kind.yaml ./setup.sh
+K3D_CONFIG_PATH=/path/to/my-k3d.yaml ./setup.sh
 ```
 
 ---
@@ -157,9 +344,13 @@ KIND_CONFIG_PATH=/path/to/my-config.yaml ./setup.sh
 | Symptom | Fix |
 |---------|-----|
 | `docker info` fails | Start Docker Desktop / Docker Engine |
-| Pods stuck in `Pending` | Increase Docker Desktop memory allocation |
+| Pods stuck in `Pending` | Increase Docker Desktop / Colima memory allocation |
 | `kind create cluster` times out | Ensure Docker has internet access for image pulls |
+| `k3d cluster create` fails | Check Colima is running: `colima status` |
 | `helm install` fails | Run `helm repo update` and retry |
+| Free disk shows `0 GiB` on macOS | Update to latest — was a known bug (fixed in CP-KP-0001) |
 | Tools not found after install (Windows) | Restart PowerShell or add install path to `$PATH` |
+| Crossplane pods crash-looping | Check logs: `kubectl logs -n crossplane-system -l app=crossplane` |
+| Provider stuck `Installing` | Check: `kubectl describe provider <name>` |
 
 For Crossplane-specific issues see the [official docs](https://docs.crossplane.io).
