@@ -112,25 +112,20 @@ _install_headlamp() {
 }
 
 # ── Kubernetes Dashboard ───────────────────────────────────────────────────────
+K8S_DASHBOARD_VERSION="${K8S_DASHBOARD_VERSION:-v2.7.0}"
+
 _install_k8s_dashboard() {
   log_section "Installing Kubernetes Dashboard"
 
-  # Add Helm repo
-  if ! helm repo list 2>/dev/null | grep -q "kubernetes-dashboard"; then
-    log_info "Adding Kubernetes Dashboard Helm repo ..."
-    helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
-    helm repo update
-  fi
-
-  # Install into kubernetes-dashboard namespace
-  if helm status kubernetes-dashboard -n kubernetes-dashboard &>/dev/null 2>&1; then
+  # Apply official recommended manifest (no Helm repo needed)
+  if kubectl get deployment kubernetes-dashboard -n kubernetes-dashboard &>/dev/null 2>&1; then
     log_warn "Kubernetes Dashboard already installed — skipping."
   else
-    log_info "Installing Kubernetes Dashboard via Helm ..."
-    kubectl create namespace kubernetes-dashboard --dry-run=client -o yaml | kubectl apply -f -
-    helm install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
-      --namespace kubernetes-dashboard \
-      --wait --timeout 3m
+    log_info "Installing Kubernetes Dashboard ${K8S_DASHBOARD_VERSION} ..."
+    kubectl apply -f \
+      "https://raw.githubusercontent.com/kubernetes/dashboard/${K8S_DASHBOARD_VERSION}/aio/deploy/recommended.yaml"
+    log_info "Waiting for Dashboard pod to be ready ..."
+    kubectl rollout status deployment/kubernetes-dashboard -n kubernetes-dashboard --timeout=3m
     log_ok "Kubernetes Dashboard installed."
   fi
 
@@ -143,8 +138,8 @@ _install_k8s_dashboard() {
     --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null
 
   # Port-forward in background — disown so it survives script exit
-  log_info "Starting port-forward on http://localhost:8443 ..."
-  kubectl port-forward -n kubernetes-dashboard svc/kubernetes-dashboard-kong-proxy 8443:443 >/dev/null 2>&1 &
+  log_info "Starting port-forward on https://localhost:8443 ..."
+  kubectl port-forward -n kubernetes-dashboard svc/kubernetes-dashboard 8443:443 >/dev/null 2>&1 &
   PF_PID=$!
   disown "$PF_PID"
   echo "$PF_PID" > /tmp/k8sdashboard-portforward.pid
