@@ -1,0 +1,47 @@
+# configs/k3d-config.yaml
+# k3d cluster config for a lightweight local Crossplane environment.
+#
+# Uses k3s — a certified Kubernetes distribution that uses ~70% less RAM
+# than full Kubernetes. Ideal for laptops and low-spec machines.
+#
+# Layout: 1 server (control-plane) + 1 agent (worker)
+# Minimum RAM: 2 GiB   |   Recommended: 4 GiB
+#
+# Override at runtime:
+#   K3D_CONFIG_PATH=/path/to/my-k3d.yaml ./setup.sh
+
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+
+metadata:
+  name: crossplane-local   # must match CLUSTER_NAME in setup.sh
+
+# 1 control-plane + 1 worker (sufficient for Crossplane)
+# Increase agents for heavier provider workloads
+servers: 1
+agents: 1
+
+# Port mappings — useful if you add an ingress controller later
+ports:
+  - port: 8080:80
+    nodeFilters:
+      - loadbalancer
+  - port: 8443:443
+    nodeFilters:
+      - loadbalancer
+
+options:
+  k3s:
+    extraArgs:
+      # Disable Traefik (saves ~100 MiB RAM) — add your own ingress if needed
+      - arg: --disable=traefik
+        nodeFilters:
+          - server:*
+      # Disable local-storage (saves RAM; crossplane doesn't need it)
+      - arg: --disable=local-storage
+        nodeFilters:
+          - server:*
+
+  kubeconfig:
+    updateDefaultKubeconfig: true   # auto-update ~/.kube/config
+    switchCurrentContext: true      # set context to k3d-crossplane-local
